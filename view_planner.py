@@ -5,8 +5,9 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import socket
 from datetime import datetime as dt
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from assets.styling import *
+from config import *
 
 
 def new_num(id, min, max, val):
@@ -22,61 +23,86 @@ def new_num(id, min, max, val):
     )
 
 
-def get_recurr_box(ids):
-    divs = []
-    count = 0
-    for id_name in ids:
-        count = count + 1
-        divs.append(
-            dbc.Row(children=[
+def new_drop(id, vals, placeholder):
+    return html.Div([
+        dcc.Dropdown(
+            id=id,
+            options=[{'label': val, 'value': val} for val in vals],
+            style=style_drop,
+            clearable=False,
+            searchable=False,
+            placeholder=placeholder
+        ),
+    ], style={'width': '250%'})
+
+
+def get_header():
+    return html.Div(children=[
+        dbc.Row(children=[
+            dbc.Col(children=[
                 dbc.Col(children=[
-                    dbc.Label('Value of Entity ' + str(count)+' (in ₹)')
-                ], style=style_col),
+                    dbc.Label('CYCLE LENGTH (IN MONTHS)')
+                ], style=style_firstcol),
                 dbc.Col(children=[
-                    new_num(id_name, 0, None, 0)
+                    new_num('cyc_len', 1, 100, 1)
                 ], style=style_box_col)
-            ], style=style_sub_sub_row)
-        )
-    return html.Div(children=divs)
-
-
-def get_adhoc_box(ids):
-    divs = []
-    count = 0
-    for id_name in ids:
-        count = count + 1
-        divs.append(
-            dbc.Row(children=[
+            ], style=style_col),
+            dbc.Col(children=[
+                dbc.Col(children=[
+                    dbc.Label('START MONTH')
+                ], style=style_thirdcol),
+                dbc.Col(children=[
+                    dbc.Row(children=[
+                        new_drop('start_mon', MONTHS, 'Months')
+                    ], style={'margin-bottom': '0%'})
+                ], style=style_drop_col)
+            ], style=style_col)
+        ], style=style_header_row),
+        dbc.Row(
+            children=[
                 dbc.Col(children=[
                     dbc.Col(children=[
-                        dbc.Label('Month of Entity ' + str(count))
-                    ], style=style_col),
+                        dbc.Label('CURRENT BANK BALANCE')
+                    ], style=style_firstcol),
                     dbc.Col(children=[
-                        new_num(id_name + '_mon', 0, None, 0)
+                        new_num('cur_bal', 0, 100000000000, 0)
                     ], style=style_box_col)
                 ], style=style_col),
                 dbc.Col(children=[
                     dbc.Col(children=[
-                        dbc.Label('Value of Entity ' + str(count)+' (in ₹)')
-                    ], style=style_col),
+                        dbc.Label('DESIRED MINIMUM BALANCE')
+                    ], style=style_thirdcol),
                     dbc.Col(children=[
-                        new_num(id_name + '_val', 0, None, 0)
+                        new_num('des_bal', 0, 10000000000, 0)
                     ], style=style_box_col)
-                ], style=style_col)
-            ], style=style_sub_sub_row)
-        )
-    return html.Div(children=divs)
+                ], style=style_col),
+            ], style=style_header_row)
+    ], style=style_header)
 
 
-def count_of_entities(id):
-    return dbc.Row(children=[
-        dbc.Col(children=[
-            dbc.Label('Number of Entities')
-        ], style=style_col),
-        dbc.Col(children=[
-            new_num(id, 0, 100, 0)
-        ], style=style_box_col)
-    ], style=style_sub_row)
+def new_entry():
+    return html.Div(id='base_entry', children=[
+        dbc.Row(children=[
+            dbc.Col(children=[
+                new_drop('type_entry', ['Inflow', 'Outflow'], 'Type of Entry')
+            ], style=style_entrycol_1),
+            dbc.Col(children=[
+                new_drop('freq', ['Recurring', 'Adhoc'], 'Frequency')
+            ], style=style_entrycol),
+            dbc.Col(children=[
+                html.Div(id='entry_data')
+            ], style=style_entrycol2)],
+            style=style_header_row)
+    ])
+
+
+def get_entries():
+    return html.Div(children=[
+        new_entry(),
+        dbc.Row(children=[
+            html.Button('+', id='new_row', n_clicks=0, style={'font-size': '25px', 'background-color':dark_blue, 'color':white})
+        ], style=style_newrow)
+    ], style={'border': black_border_thick})
 
 
 def get_fd_planner():
@@ -84,89 +110,8 @@ def get_fd_planner():
         dbc.Row(children=[
             dbc.Label('FIXED DEPOSITS')
         ], style=style_sub_heading),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Cycle Length (in years)')
-            ], style=style_col),
-            dbc.Col(children=[
-                new_num('cyc_len', 1, 100, 1)
-            ], style=style_box_col)
-        ], style=style_row),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Col(children=[
-                    dbc.Label('Start Month')
-                ], style=style_col),
-                dbc.Col(children=[
-                    new_num('st_mon', 1, 12, 4)
-                ], style=style_box_col)
-            ], style=style_col),
-            dbc.Col(children=[
-                dbc.Col(children=[
-                    dbc.Label('Start Year')
-                ], style=style_col),
-                dbc.Col(children=[
-                    new_num('st_yr', 2020, 2120, 2020)
-                ], style=style_box_col)
-            ], style=style_col)
-        ], style=style_row),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Present Year Total Monthly Recurring Income')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_pres_rec_inc'),
-        html.Div(id='pres_rec_inc'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Present Year Total Monthly Adhoc Income')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_pres_adh_inc'),
-        html.Div(id='pres_adh_inc'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Present Year Total Monthly Recurring Expenses')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_pres_rec_exp'),
-        html.Div(id='pres_rec_exp'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Present Year Total Monthly Adhoc Expenses')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_pres_adh_exp'),
-        html.Div(id='pres_adh_exp'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Next Year Total Monthly Recurring Income')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_nxt_rec_inc'),
-        html.Div(id='nxt_rec_inc'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Next Year Total Monthly Adhoc Income')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_nxt_adh_inc'),
-        html.Div(id='nxt_adh_inc'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Next Year Total Monthly Recurring Expenses')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_nxt_rec_exp'),
-        html.Div(id='nxt_rec_exp'),
-        dbc.Row(children=[
-            dbc.Col(children=[
-                dbc.Label('Next Year Total Monthly Adhoc Expenses')
-            ], style=style_col_head),
-        ], style=style_row),
-        count_of_entities('count_nxt_adh_exp'),
-        html.Div(id='nxt_adh_exp'),
-
+        get_header(),
+        get_entries()
     ])
 
 
@@ -177,47 +122,65 @@ app.layout = html.Div(children=[
         dbc.Label('SAVINGS PLANNER')
     ], style=style_heading),
     dbc.Row(children=[
-        dbc.Col(children=[
+        html.Div(children=[
             get_fd_planner()
         ], style=style_fdInputs)
     ])
 ])
 
-ids_glob = ['pres_rec_inc', 'pres_adh_inc', 'pres_rec_exp', 'pres_adh_exp', 'nxt_rec_inc', 'nxt_adh_inc', 'nxt_rec_exp',
-            'nxt_adh_exp']
-OUTPUT = []
-for id in ids_glob:
-    OUTPUT.append(Output(id, 'children'))
-INPUT = []
-for id in ids_glob:
-    INPUT.append(Input('count_' + id, 'value'))
+
+@app.callback(Output('base_entry', 'children'), [Input('new_row', 'n_clicks')], [State('base_entry', 'children')])
+def add_new_row(n_clicks, old_output):
+    if n_clicks == 0:
+        return old_output
+    return old_output + [new_entry()]
 
 
-@app.callback(OUTPUT, INPUT)
-def rec_boxes_shown(count_pres_rec_inc, count_pres_adh_inc, count_pres_rec_exp, count_pres_adh_exp,
-                    count_nxt_rec_inc, count_nxt_adh_inc, count_nxt_rec_exp, count_nxt_adh_exp):
-    counts = [count_pres_rec_inc, count_pres_adh_inc, count_pres_rec_exp, count_pres_adh_exp,
-              count_nxt_rec_inc, count_nxt_adh_inc, count_nxt_rec_exp, count_nxt_adh_exp]
-    ids = []
-    for count in counts:
-        curr_ids = []
-        for i in range(count):
-            curr_ids.append(ids_glob[count] + str(i))
-        ids.append(curr_ids)
-
-    return_res = []
-    i = 0
-    while i < len(counts):
-        return_res.append(get_recurr_box(ids[i]))
-        i = i + 1
-        return_res.append(get_adhoc_box(ids[i]))
-        i = i + 1
-    return return_res
+@app.callback(Output('entry_data', 'children'), [Input('freq', 'value')])
+def entry_updater(freq):
+    if freq == 'Recurring':
+        return html.Div(children=[
+            dbc.Row(children=[
+                dbc.Col(children=[
+                    dbc.Col(dbc.Label('Commencement'),
+                            style={'width': '100%'}),
+                    dbc.Col(new_drop('start_mon_entry1', MONTHS, 'Months'),
+                            style={'margin-left': '5%'}),
+                    dbc.Col(new_num('start_year_entry1', 2020, 3020, 2020),
+                            style={'margin-left': '5%'})
+                ], style=style_col_1),
+                dbc.Col(children=[
+                    dbc.Col(dbc.Label('Duration')),
+                    dbc.Col(new_num('time_dur_entry1',1, 1000000000, 12),
+                            style={'margin-left': '5%'}),
+                ], style=style_col_2),
+                dbc.Col(children=[
+                    dbc.Col(dbc.Label('Value')),
+                    dbc.Col(new_num('value_entry1', 0, 10000000000, 0),
+                            style={'margin-left': '5%'})
+                ], style=style_col_3),
+            ], style=style_row)])
+    elif freq == 'Adhoc':
+        return html.Div(children=[
+            dbc.Row(children=[
+                dbc.Col(children=[
+                    dbc.Col(dbc.Label('OnDate'),
+                            style={'width': '100%'}),
+                    dbc.Col(new_drop('start_mon_entry1', MONTHS, 'Months'),
+                            style={'margin-left': '5%'}),
+                    dbc.Col(new_num('start_year_entry1', 2020, 3020, 2020),
+                            style={'margin-left': '5%'})
+                ], style=adh_style_col_1),
+                dbc.Col(children=[
+                    dbc.Col(dbc.Label('Value')),
+                    dbc.Col(new_num('value_entry1', 0, 10000000000, 0),
+                            style={'margin-left': '5%'})
+                ], style=adh_style_col_2),
+            ], style=style_row)])
 
 
 if __name__ == '__main__':
+    print('Code execution has started')
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     app.server.run(port=8050, host=ip_address)
-
-html.Div().app
