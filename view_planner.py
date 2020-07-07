@@ -5,7 +5,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import socket
 from datetime import datetime as dt
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, MATCH
 from assets.styling import *
 from config import *
 
@@ -62,7 +62,7 @@ def get_header():
             children=[
                 dbc.Col(children=[
                     dbc.Col(children=[
-                        dbc.Label('CURRENT BANK BALANCE')
+                        dbc.Label('CURRENT BANK BALANCE (IN ₹)')
                     ], style=style_firstcol),
                     dbc.Col(children=[
                         new_num('cur_bal', 0, 100000000000, 0)
@@ -70,7 +70,7 @@ def get_header():
                 ], style=style_col),
                 dbc.Col(children=[
                     dbc.Col(children=[
-                        dbc.Label('DESIRED MINIMUM BALANCE')
+                        dbc.Label('DESIRED MINIMUM BALANCE (IN ₹)')
                     ], style=style_thirdcol),
                     dbc.Col(children=[
                         new_num('des_bal', 0, 10000000000, 0)
@@ -80,28 +80,37 @@ def get_header():
     ], style=style_header)
 
 
-def new_entry():
-    return html.Div(id='base_entry', children=[
+def new_entry(n_clicks):
+    return html.Div(children=[
         dbc.Row(children=[
             dbc.Col(children=[
-                new_drop('type_entry', ['Inflow', 'Outflow'], 'Type of Entry')
+                new_drop({'type': 'entry_type', 'index': n_clicks}, ['Inflow', 'Outflow'], 'Type of Entry')
             ], style=style_entrycol_1),
             dbc.Col(children=[
-                new_drop('freq', ['Recurring', 'Adhoc'], 'Frequency')
+                new_drop({'type': 'entry_freq', 'index': n_clicks}, ['Recurring', 'Adhoc'], 'Frequency')
             ], style=style_entrycol),
             dbc.Col(children=[
-                html.Div(id='entry_data')
+                html.Div(id={'type': 'entry_data', 'index': n_clicks})
             ], style=style_entrycol2)],
-            style=style_header_row)
+            style=style_row)
     ])
 
 
-def get_entries():
+def get_entries(n_clicks):
     return html.Div(children=[
-        new_entry(),
+        html.Div(id='entry_table', children=[
+            new_entry(n_clicks)
+        ]),
         dbc.Row(children=[
-            html.Button('+', id='new_row', n_clicks=0, style={'font-size': '25px', 'background-color':dark_blue, 'color':white})
-        ], style=style_newrow)
+            html.Button('+', id='new_row', n_clicks=0,
+                        style={'font-size': '22px', 'background-color': dark_blue, 'color': white})
+        ], style=style_newrow),
+        dbc.Row(children=[
+            html.Button('SUBMIT', id='submit', n_clicks=0,
+                        style={'font-size': '18px', 'background-color': dark_blue, 'color': white, 'fontWeight': 'bold',
+                               'font-family': cambria
+                               })
+        ], style=style_submit)
     ], style={'border': black_border_thick})
 
 
@@ -111,7 +120,7 @@ def get_fd_planner():
             dbc.Label('FIXED DEPOSITS')
         ], style=style_sub_heading),
         get_header(),
-        get_entries()
+        get_entries(0),
     ])
 
 
@@ -129,17 +138,18 @@ app.layout = html.Div(children=[
 ])
 
 
-@app.callback(Output('base_entry', 'children'), [Input('new_row', 'n_clicks')], [State('base_entry', 'children')])
+@app.callback(Output('entry_table', 'children'), [Input('new_row', 'n_clicks')], [State('entry_table', 'children')])
 def add_new_row(n_clicks, old_output):
     if n_clicks == 0:
         return old_output
-    return old_output + [new_entry()]
+    return old_output + [new_entry(n_clicks)]
 
 
-@app.callback(Output('entry_data', 'children'), [Input('freq', 'value')])
+@app.callback(Output({'type': 'entry_data', 'index': MATCH}, 'children'),
+              [Input({'type': 'entry_freq', 'index': MATCH}, 'value')])
 def entry_updater(freq):
     if freq == 'Recurring':
-        return html.Div(children=[
+        return (html.Div(children=[
             dbc.Row(children=[
                 dbc.Col(children=[
                     dbc.Col(dbc.Label('Commencement'),
@@ -151,7 +161,7 @@ def entry_updater(freq):
                 ], style=style_col_1),
                 dbc.Col(children=[
                     dbc.Col(dbc.Label('Duration')),
-                    dbc.Col(new_num('time_dur_entry1',1, 1000000000, 12),
+                    dbc.Col(new_num('time_dur_entry1', 1, 1000000000, 12),
                             style={'margin-left': '5%'}),
                 ], style=style_col_2),
                 dbc.Col(children=[
@@ -159,9 +169,9 @@ def entry_updater(freq):
                     dbc.Col(new_num('value_entry1', 0, 10000000000, 0),
                             style={'margin-left': '5%'})
                 ], style=style_col_3),
-            ], style=style_row)])
+            ], style=style_spl_row)]))
     elif freq == 'Adhoc':
-        return html.Div(children=[
+        return (html.Div(children=[
             dbc.Row(children=[
                 dbc.Col(children=[
                     dbc.Col(dbc.Label('OnDate'),
@@ -176,7 +186,7 @@ def entry_updater(freq):
                     dbc.Col(new_num('value_entry1', 0, 10000000000, 0),
                             style={'margin-left': '5%'})
                 ], style=adh_style_col_2),
-            ], style=style_row)])
+            ], style=style_spl_row)]))
 
 
 if __name__ == '__main__':
