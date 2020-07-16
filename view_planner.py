@@ -1,11 +1,9 @@
-import pandas
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
 import socket
 import dash_table
-from datetime import datetime as dt
 from dash.dependencies import Input, Output, State, MATCH, ALL
 from assets.styling import *
 from config import *
@@ -44,7 +42,8 @@ def create_table(table):
     return dash_table.DataTable(
         columns=[{"name": i, "id": i} for i in table.columns],
         data=table.to_dict('records'),
-        style_cell={'textAlign': 'center', 'border': black_border_thin, 'font-size': '13px'},
+        style_cell={'textAlign': 'center', 'border': black_border_thin, 'font-size': '14px', 'backgroundColor': white,
+                    'whiteSpace': 'normal', 'height': 'auto', 'min-width': '185px'},
         style_header={'textAlign': 'center', 'backgroundColor': light_blue, 'fontWeight': 'bold', 'font-size': '15px'},
         style_header_conditional=[{}]
     )
@@ -162,9 +161,9 @@ def get_fd_planner():
         get_header(),
         get_entries(),
         html.Div(children=[dbc.Row(dbc.Label('AGGREGATED TABLE'),
-                                   style={'padding-left': '43%', 'background-color': dark_blue, 'color': white,
+                                   style={'padding-left': '42%', 'background-color': dark_blue, 'color': white,
                                           'border': black_border_thick, 'fontWeight': 'bold', 'font-size': '125%',
-                                          'font-family': cambria, 'margin-left': '10%', 'margin-right': '10%'}),
+                                          'font-family': cambria}),
                            dbc.Row(id='report_table', children=[])
                            ], style={'margin-top': '1%'})
     ])
@@ -199,14 +198,29 @@ def input_table_updater(n_clicks, type, freq, start_mon, start_year, time_dur, v
     if n_clicks == 0:
         return [create_table(df_glob),
                 new_entry(n_clicks)]
+    if len(time_dur) == 0:
+        curr_time = None
+    else:
+        curr_time = time_dur[0]
     if n_clicks == 1:
-        df_glob = pd.DataFrame([[type, freq, start_mon, start_year, time_dur, val]], columns=COLUMNS)
+        df_glob = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
         return [create_table(df_glob), new_entry(n_clicks)]
-    temp_df = pd.DataFrame([[type, freq, start_mon, start_year, time_dur, val]], columns=COLUMNS)
-    df_glob = pd.concat([df_glob, temp_df])
-    print(type, freq, start_mon, start_year, time_dur, val)
-    print(df_glob)
+    temp_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
+    df_glob = pd.concat([df_glob, temp_df]).reset_index(drop=True)
     return [create_table(df_glob), new_entry(n_clicks)]
+
+
+@app.callback(Output('report_table', 'children'), [Input('submit', 'n_clicks')],
+              [State('start_mon', 'value'), State('start_year', 'value')])
+def report_table_generator(n_clicks, glob_start_mon, glob_start_year):
+    if n_clicks == 0:
+        return create_table(pd.DataFrame([[None, None, None, None]], columns=REPORT_COLUMNS))
+    cols = df_glob.columns
+    df_res = fdCalculator.aggTable_generator(glob_start_mon, glob_start_year, df_glob[cols[0]].tolist(),
+                                             df_glob[cols[1]].tolist(), df_glob[cols[2]].tolist(),
+                                             df_glob[cols[3]].tolist(), df_glob[cols[4]].tolist(),
+                                             df_glob[cols[5]].tolist())
+    return create_table(df_res)
 
 
 @app.callback(Output({'type': 'entry_data', 'index': MATCH}, 'children'),
@@ -255,58 +269,6 @@ def entry_updater(freq, val):
             ], style=style_spl_row)]))
     else:
         return None
-
-
-# State({'type': 'entry_type', 'index': ALL}, 'value'),
-# State({'type': 'entry_freq', 'index': ALL}, 'value'),
-# State({'type': 'start_mon_entry', 'index': ALL}, 'value'),
-# State({'type': 'start_year_entry', 'index': ALL}, 'value'),
-# State({'type': 'time_dur_entry', 'index': ALL}, 'value'),
-# State({'type': 'value_entry', 'index': ALL}, 'value')])
-# , cyc_len, start_mon_glob, start_year_glob, cur_bal, des_bal, type, freq, start_mon,  start_year, time_dur, val
-#
-# @app.callback(Output('report_table', 'children'), [Input('submit', 'n_clicks')],
-#               [State('cyc_len', 'value'),
-#                State('start_mon', 'value'),
-#                State('start_year', 'value'),
-#                State('cur_bal', 'value'),
-#                State('des_bal', 'value'),
-#                State({'type': 'entry_type', 'index': ALL}, 'value'),
-#                State({'type': 'entry_freq', 'index': ALL}, 'value'),
-#                State({'type': 'start_mon_entry', 'index': ALL}, 'value'),
-#                State({'type': 'start_year_entry', 'index': ALL}, 'value'),
-#                State({'type': 'time_dur_entry', 'index': ALL}, 'value'),
-#                State({'type': 'value_entry', 'index': ALL}, 'value')])
-# def get_aggregated_table(n_clicks, cyc_len, start_mon_glob, start_year_glob, cur_bal, des_bal, type, freq, start_mon,
-#                          start_year, time_dur, val):
-#     if n_clicks == 0:
-#         print('call_back called', n_clicks)
-#         return None
-#     print('call_back called', n_clicks)
-#     result_table = fdCalculator.inputs_cleaner(start_mon_glob, start_year_glob, type, freq,
-#                                                start_mon, start_year, time_dur, val)
-#     # result_table = fdCalculator.fd_table_generator(cyc_len, start_mon_glob, start_year_glob, cur_bal, des_bal, pres_inc,
-#     #                                               pres_exp, nxt_inc, nxt_exp)
-#     return create_table(result_table)
-
-
-# @app.callback(Output('entry_table', 'children'), [Input('new_row', 'n_clicks')], [State('entry_table','children')])
-# def add_new_row(n_clicks, old_output):
-#     if n_clicks == 0:
-#         return old_output
-#     return old_output + [html.Div(id='row_' + str(n_clicks), children=[
-#         dbc.Row(children=[
-#             dbc.Col(children=[
-#                 new_drop({'type': 'entry_type', 'index': n_clicks}, ['Inflow', 'Outflow'], 'Type of Entry')
-#             ], style=style_entrycol_1),
-#             dbc.Col(children=[
-#                 new_drop({'type': 'entry_freq', 'index': n_clicks}, ['Recurring', 'Adhoc'], 'Frequency')
-#             ], style=style_entrycol),
-#             dbc.Col(children=[
-#                 html.Div(id={'type': 'entry_data', 'index': n_clicks})
-#             ], style=style_entrycol2)],
-#             style=style_row)
-#     ])]
 
 
 if __name__ == '__main__':
