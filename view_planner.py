@@ -126,11 +126,12 @@ def get_entries():
         html.Div(children=[
             dbc.Row(dbc.Label('INPUT TABLE'),
                     style={'padding-left': '43.5%', 'background-color': dark_blue, 'color': white,
-                           'border-bottom': black_border_thick, 'fontWeight': 'bold',
+                           'border-bottom': black_border_thin, 'border-left': black_border_thick,
+                           'border-top': black_border_thick, 'border-right': black_border_thick, 'fontWeight': 'bold',
                            'font-size': '125%',
                            'font-family': cambria, }),
             html.Div(id='input_table', children=[])
-        ], style={'border': black_border_thick}),
+        ]),
         html.Div(children=[
             dbc.Row(dbc.Label('TABLE ENTRIES'),
                     style={'padding-left': '43.5%', 'background-color': dark_blue, 'color': white,
@@ -148,8 +149,8 @@ def get_entries():
                                    'fontWeight': 'bold',
                                    'font-family': cambria
                                    })
-            ], style=style_submit)], style={'border': black_border_thick, 'margin-top': '1%'})
-
+            ], style=style_submit)
+        ], style={'border': black_border_thick, 'margin-top': '1%'})
     ], style={'margin-top': '1%'})
 
 
@@ -173,53 +174,72 @@ app = dash.Dash(__name__)
 
 app.layout = html.Div(children=[
     dbc.Row(children=[
-        dbc.Label('FIXED DEPOSITS PLANNER')
-    ], style=style_heading),
+        dbc.Col(dbc.Label('FIXED DEPOSITS PLANNER'), style=style_heading),
+        dbc.Col(html.Button('RESET', id='reset', n_clicks=0,
+                            style={'font-size': '18px', 'background-color': dark_blue, 'color': white,
+                                   'fontWeight': 'bold',
+                                   'font-family': cambria}),
+                style={'margin-left': '30%'})
+
+    ], style=style_top_row),
     dbc.Row(children=[
         html.Div(children=[
             get_fd_planner()
         ], style=style_fdInputs)
-    ])
+    ]),
+    dash_table.DataTable(id='temp_table'),
+    dbc.Row(id='lol', children=[])
+
 ])
 
-df_glob = pd.DataFrame([[None, None, None, None, None, None]], columns=COLUMNS)
+#
+# @app.callback(Output('temp_table', 'data'), [Input('reset', 'n_clicks')])
+# def reset_it(n_clicks):
+#     print('1')
+#     return pd.DataFrame([[None, None, None, None, None, None]], columns=COLUMNS).to_dict('rows')
+
+#
+# @app.callback(Output('lol', 'children'), [Input('temp_table', 'data')])
+# def check(temp_table):
+#     print(temp_table)
+#     print(pd.DataFrame(temp_table, columns=COLUMNS))
+#     return None
 
 
-@app.callback([(Output('input_table', 'children')), (Output('input_row', 'children'))], [Input('new_row', 'n_clicks')],
-              [State({'type': 'entry_type', 'index': ALL}, 'value'),
-               State({'type': 'entry_freq', 'index': ALL}, 'value'),
-               State({'type': 'start_mon_entry', 'index': ALL}, 'value'),
-               State({'type': 'start_year_entry', 'index': ALL}, 'value'),
-               State({'type': 'time_dur_entry', 'index': ALL}, 'value'),
-               State({'type': 'value_entry', 'index': ALL}, 'value'),
-               State('input_table', 'value')])
-def input_table_updater(n_clicks, type, freq, start_mon, start_year, time_dur, val, input_table):
-    global df_glob
+@app.callback([Output('input_table', 'children'), Output('input_row', 'children'), Output('temp_table', 'data')],
+              [Input('new_row', 'n_clicks')],
+              [State({'type': 'entry_type', 'index': ALL}, 'value'),State({'type': 'entry_freq', 'index': ALL}, 'value'),
+               State({'type': 'start_mon_entry', 'index': ALL}, 'value'),State({'type': 'start_year_entry', 'index': ALL}, 'value'),
+               State({'type': 'time_dur_entry', 'index': ALL}, 'value'),State({'type': 'value_entry', 'index': ALL}, 'value'),
+               State('temp_table','data')])
+def input_table_updater(n_clicks, type, freq, start_mon, start_year, time_dur, val, temp_table):
     if n_clicks == 0:
-        return [create_table(df_glob),
-                new_entry(n_clicks)]
-    if len(time_dur) == 0:
-        curr_time = None
-    else:
-        curr_time = time_dur[0]
+        curr_df = pd.DataFrame([[None, None, None, None, None, None]], columns=COLUMNS)
+        return [create_table(curr_df), new_entry(n_clicks),curr_df.to_dict('rows')]
+    curr_time = None if len(time_dur) == 0 else int(time_dur[0])
     if n_clicks == 1:
-        df_glob = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
-        return [create_table(df_glob), new_entry(n_clicks)]
+        curr_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
+        return [create_table(curr_df), new_entry(n_clicks), curr_df.to_dict('rows')]
     temp_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
-    df_glob = pd.concat([df_glob, temp_df]).reset_index(drop=True)
-    return [create_table(df_glob), new_entry(n_clicks)]
+    prev_df = pd.DataFrame(temp_table, columns=COLUMNS)
+    curr_df = pd.concat([prev_df, temp_df]).reset_index(drop=True)
+    return [create_table(curr_df), new_entry(n_clicks), curr_df.to_dict('rows')]
 
 
 @app.callback(Output('report_table', 'children'), [Input('submit', 'n_clicks')],
-              [State('start_mon', 'value'), State('start_year', 'value')])
-def report_table_generator(n_clicks, glob_start_mon, glob_start_year):
+              [State('start_mon', 'value'), State('start_year', 'value'), State('cur_bal', 'value'),
+               State('des_bal', 'value'), State('temp_table', 'data')])
+def report_table_generator(n_clicks, glob_start_mon, glob_start_year, cur_bal, des_bal, temp_table):
     if n_clicks == 0:
         return create_table(pd.DataFrame([[None, None, None, None]], columns=REPORT_COLUMNS))
-    cols = df_glob.columns
-    df_res = fdCalculator.aggTable_generator(glob_start_mon, glob_start_year, df_glob[cols[0]].tolist(),
-                                             df_glob[cols[1]].tolist(), df_glob[cols[2]].tolist(),
-                                             df_glob[cols[3]].tolist(), df_glob[cols[4]].tolist(),
-                                             df_glob[cols[5]].tolist())
+    pres_df = pd.DataFrame(temp_table, columns=COLUMNS)
+    print(pres_df)
+    cols = pres_df.columns
+    df_res = fdCalculator.aggTable_generator(glob_start_mon, glob_start_year, cur_bal, des_bal,
+                                             pres_df[cols[0]].tolist(),
+                                             pres_df[cols[1]].tolist(), pres_df[cols[2]].tolist(),
+                                             pres_df[cols[3]].tolist(), pres_df[cols[4]].tolist(),
+                                             pres_df[cols[5]].tolist())
     return create_table(df_res)
 
 
