@@ -179,7 +179,7 @@ app.layout = html.Div(children=[
                             style={'font-size': '18px', 'background-color': dark_blue, 'color': white,
                                    'fontWeight': 'bold',
                                    'font-family': cambria}),
-                style={'margin-left': '30%'})
+                style={'margin-left': '33%'})
 
     ], style=style_top_row),
     dbc.Row(children=[
@@ -188,59 +188,75 @@ app.layout = html.Div(children=[
         ], style=style_fdInputs)
     ]),
     dash_table.DataTable(id='temp_table'),
-    dbc.Row(id='lol', children=[])
+    html.Div([
+        dcc.Input(id='temp_new', value=0)
+    ], style={'display': 'none'}),
+    html.Div([
+        dcc.Input(id='temp_reset_new', value=0)
+    ], style={'display': 'none'}),
+    html.Div([
+        dcc.Input(id='temp_reset_submit', value=0)
+    ], style={'display': 'none'}),
+    html.Div([
+        dcc.Input(id='temp_submit', value=0)
+    ], style={'display': 'none'}),
 
 ])
 
-#
-# @app.callback(Output('temp_table', 'data'), [Input('reset', 'n_clicks')])
-# def reset_it(n_clicks):
-#     print('1')
-#     return pd.DataFrame([[None, None, None, None, None, None]], columns=COLUMNS).to_dict('rows')
 
-#
-# @app.callback(Output('lol', 'children'), [Input('temp_table', 'data')])
-# def check(temp_table):
-#     print(temp_table)
-#     print(pd.DataFrame(temp_table, columns=COLUMNS))
-#     return None
-
-
-@app.callback([Output('input_table', 'children'), Output('input_row', 'children'), Output('temp_table', 'data')],
-              [Input('new_row', 'n_clicks')],
-              [State({'type': 'entry_type', 'index': ALL}, 'value'),State({'type': 'entry_freq', 'index': ALL}, 'value'),
-               State({'type': 'start_mon_entry', 'index': ALL}, 'value'),State({'type': 'start_year_entry', 'index': ALL}, 'value'),
-               State({'type': 'time_dur_entry', 'index': ALL}, 'value'),State({'type': 'value_entry', 'index': ALL}, 'value'),
-               State('temp_table','data')])
-def input_table_updater(n_clicks, type, freq, start_mon, start_year, time_dur, val, temp_table):
-    if n_clicks == 0:
-        curr_df = pd.DataFrame([[None, None, None, None, None, None]], columns=COLUMNS)
-        return [create_table(curr_df), new_entry(n_clicks),curr_df.to_dict('rows')]
-    curr_time = None if len(time_dur) == 0 else int(time_dur[0])
-    if n_clicks == 1:
-        curr_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
-        return [create_table(curr_df), new_entry(n_clicks), curr_df.to_dict('rows')]
-    temp_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
-    prev_df = pd.DataFrame(temp_table, columns=COLUMNS)
-    curr_df = pd.concat([prev_df, temp_df]).reset_index(drop=True)
-    return [create_table(curr_df), new_entry(n_clicks), curr_df.to_dict('rows')]
+@app.callback([Output('input_table', 'children'), Output('input_row', 'children'), Output('temp_table', 'data'),
+               Output('temp_new', 'value'), Output('temp_reset_new', 'value')],
+              [Input('new_row', 'n_clicks'), Input('reset', 'n_clicks')],
+              [State({'type': 'entry_type', 'index': ALL}, 'value'),
+               State({'type': 'entry_freq', 'index': ALL}, 'value'),
+               State({'type': 'start_mon_entry', 'index': ALL}, 'value'),
+               State({'type': 'start_year_entry', 'index': ALL}, 'value'),
+               State({'type': 'time_dur_entry', 'index': ALL}, 'value'),
+               State({'type': 'value_entry', 'index': ALL}, 'value'),
+               State('temp_table', 'data'), State('temp_new', 'value'), State('temp_reset_new', 'value')])
+def input_table_updater(new_clicks, reset_clicks, type, freq, start_mon, start_year, time_dur, val, temp_table,
+                        temp_new, temp_reset):
+    if reset_clicks == temp_reset:
+        if new_clicks == 0:
+            curr_df = pd.DataFrame([], columns=COLUMNS)
+            return [create_table(curr_df), new_entry(new_clicks), curr_df.to_dict('rows'), new_clicks, reset_clicks]
+        curr_time = None if len(time_dur) == 0 else int(time_dur[0])
+        if new_clicks == 1:
+            curr_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]],
+                                   columns=COLUMNS)
+            return [create_table(curr_df), new_entry(new_clicks), curr_df.to_dict('rows'), new_clicks, reset_clicks]
+        temp_df = pd.DataFrame([[type[0], freq[0], start_mon[0], start_year[0], curr_time, val[0]]], columns=COLUMNS)
+        prev_df = pd.DataFrame(temp_table, columns=COLUMNS)
+        curr_df = pd.concat([prev_df, temp_df]).reset_index(drop=True)
+        return [create_table(curr_df), new_entry(new_clicks), curr_df.to_dict('rows'), new_clicks, reset_clicks]
+    elif new_clicks == temp_new:
+        curr_df = pd.DataFrame([], columns=COLUMNS)
+        return [create_table(curr_df), new_entry(new_clicks), curr_df.to_dict('rows'), new_clicks, reset_clicks]
 
 
-@app.callback(Output('report_table', 'children'), [Input('submit', 'n_clicks')],
-              [State('start_mon', 'value'), State('start_year', 'value'), State('cur_bal', 'value'),
-               State('des_bal', 'value'), State('temp_table', 'data')])
-def report_table_generator(n_clicks, glob_start_mon, glob_start_year, cur_bal, des_bal, temp_table):
-    if n_clicks == 0:
-        return create_table(pd.DataFrame([[None, None, None, None]], columns=REPORT_COLUMNS))
-    pres_df = pd.DataFrame(temp_table, columns=COLUMNS)
-    print(pres_df)
-    cols = pres_df.columns
-    df_res = fdCalculator.aggTable_generator(glob_start_mon, glob_start_year, cur_bal, des_bal,
-                                             pres_df[cols[0]].tolist(),
-                                             pres_df[cols[1]].tolist(), pres_df[cols[2]].tolist(),
-                                             pres_df[cols[3]].tolist(), pres_df[cols[4]].tolist(),
-                                             pres_df[cols[5]].tolist())
-    return create_table(df_res)
+@app.callback(
+    [Output('report_table', 'children'), Output('temp_submit', 'value'), Output('temp_reset_submit', 'value')],
+    [Input('submit', 'n_clicks'), Input('reset', 'n_clicks')],
+    [State('start_mon', 'value'), State('start_year', 'value'), State('cur_bal', 'value'),
+     State('des_bal', 'value'), State('temp_table', 'data'), State('temp_submit', 'value'),
+     State('temp_reset_submit', 'value')])
+def report_table_generator(submit_clicks, reset_clicks, glob_start_mon, glob_start_year, cur_bal, des_bal, temp_table,
+                           temp_submit, temp_reset):
+    if reset_clicks == temp_reset:
+        if submit_clicks == 0:
+            return [create_table(pd.DataFrame([[None, None, None, None]], columns=REPORT_COLUMNS)), submit_clicks,
+                    reset_clicks]
+        pres_df = pd.DataFrame(temp_table, columns=COLUMNS)
+        cols = pres_df.columns
+        df_res = fdCalculator.aggTable_generator(glob_start_mon, glob_start_year, cur_bal, des_bal,
+                                                 pres_df[cols[0]].tolist(),
+                                                 pres_df[cols[1]].tolist(), pres_df[cols[2]].tolist(),
+                                                 pres_df[cols[3]].tolist(), pres_df[cols[4]].tolist(),
+                                                 pres_df[cols[5]].tolist())
+        return [create_table(df_res), submit_clicks, reset_clicks]
+    elif submit_clicks == temp_submit:
+        return [create_table(pd.DataFrame([[None, None, None, None]], columns=REPORT_COLUMNS)), submit_clicks,
+                reset_clicks]
 
 
 @app.callback(Output({'type': 'entry_data', 'index': MATCH}, 'children'),
