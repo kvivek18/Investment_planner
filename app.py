@@ -171,6 +171,8 @@ def get_fd_planner():
 
 
 app = dash.Dash(__name__)
+server = app.server
+app.title = "Fixed Deposits Planner"
 
 app.layout = html.Div(children=[
     dbc.Row(children=[
